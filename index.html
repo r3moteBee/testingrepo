@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0f3460" />
+  <meta name="description" content="Calculator & Grapher PWA - works offline" />
+  <title>Calculator & Grapher</title>
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <style>
+    /* ===== Base Reset & Variables ===== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-primary: #1a1a2e;
+      --bg-secondary: #16213e;
+      --bg-tertiary: #0f3460;
+      --accent: #e94560;
+      --accent-hover: #ff6b81;
+      --text-primary: #eaeaea;
+      --text-secondary: #a8b2d1;
+      --border-color: #233554;
+      --success: #00d9a6;
+      --error: #ff4757;
+      --canvas-bg: #0d1b2a;
+      --grid-color: rgba(168, 178, 209, 0.15);
+      --axis-color: rgba(233, 69, 96, 0.7);
+      --graph-color: #4ecca3;
+      --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    html {
+      font-size: 16px;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ===== Header ===== */
+    header {
+      background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
+      padding: 1rem 2rem;
+      box-shadow: var(--shadow);
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    header h1 span {
+      color: var(--accent);
+    }
+
+    /* ===== Tab Navigation ===== */
+    .tab-nav {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 1rem;
+      background-color: var(--bg-secondary);
+    }
+
+    .tab-btn {
+      padding: 0.75rem 1.5rem;
+      border: 2px solid var(--border-color);
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 8px 8px 0 0;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn:hover {
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
+    .tab-btn.active {
+      background-color: var(--bg-tertiary);
+      color: var(--accent);
+      border-bottom-color: var(--bg-tertiary);
+    }
+
+    /* ===== Tab Content ===== */
+    .tab-content {
+      display: none;
+      padding: 1.5rem;
+      max-width: 800px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* ===== Calculator Styles ===== */
+    .calculator {
+      background-color: var(--bg-secondary);
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: var(--shadow);
+    }
+
+    .calc-display {
+      background-color: var(--bg-primary);
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      text-align: right;
+      min-height: 80px;
+    }
+
+    .calc-expression {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      min-height: 1.2em;
+    }
+
+    .calc-result {
+      font-size: 1.8rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      word-break: break-all;
+    }
+
+    .calc-buttons {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.5rem;
+    }
+
+    .calc-btn {
+      padding: 1rem;
+      font-size: 1.2rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-weight: 500;
+    }
+
+    .calc-btn.number {
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
+    .calc-btn.operator {
+      background-color: var(--accent);
+      color: white;
+    }
+
+    .calc-btn.operator:hover {
+      background-color: var(--accent-hover);
+    }
+
+    .calc-btn.function {
+      background-color: #2a3a5c;
+      color: var(--text-secondary);
+    }
+
+    .calc-btn.clear {
+      background-color: var(--error);
+      color: white;
+    }
+
+    .calc-btn.equals {
+      background-color: var(--success);
+      color: white;
+    }
+
+    .calc-btn.span-2 {
+      grid-column: span 2;
+    }
+
+    .calc-btn:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+
+    .calc-btn:active {
+      transform: translateY(1px);
+    }
+
+    /* ===== Graphing Styles ===== */
+    .graph-container {
+      background-color: var(--bg-secondary);
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: var(--shadow);
+    }
+
+    .graph-input-group {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .graph-input-group label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.25rem;
+    }
+
+    .graph-input-group input {
+      flex: 1;
+      min-width: 120px;
+      padding: 0.75rem;
+      border: 2px solid var(--border-color);
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+
+    .graph-input-group input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .graph-input-group input::placeholder {
+      color: var(--text-secondary);
+      opacity: 0.6;
+    }
+
+    .domain-controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .domain-control label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.25rem;
+    }
+
+    .domain-control input {
+      width: 100%;
+      padding: 0.5rem;
+      border: 2px solid var(--border-color);
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      border-radius: 6px;
+      font-size: 0.95rem;
+    }
+
+    .domain-control input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .graph-canvas-wrapper {
+      position: relative;
+      width: 100%;
+      background-color: var(--canvas-bg);
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      overflow: hidden;
+    }
+
+    #graphCanvas {
+      width: 100%;
+      height: 400px;
+      display: block;
+    }
+
+    .graph-message {
+      padding: 0.75rem;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      font-size: 0.95rem;
+      text-align: center;
+    }
+
+    .graph-message.error {
+      background-color: rgba(255, 71, 87, 0.2);
+      color: var(--error);
+      border: 1px solid var(--error);
+    }
+
+    .graph-message.info {
+      background-color: rgba(78, 204, 163, 0.2);
+      color: var(--success);
+      border: 1px solid var(--success);
+    }
+
+    .graph-controls {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .graph-btn {
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .graph-btn.primary {
+      background-color: var(--accent);
+      color: white;
+    }
+
+    .graph-btn.primary:hover {
+      background-color: var(--accent-hover);
+    }
+
+    .graph-btn.secondary {
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
+    .graph-btn.secondary:hover {
+      background-color: #3a4a6c;
+    }
+
+    .graph-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .examples-section {
+      margin-top: 1rem;
+      padding: 1rem;
+      background-color: var(--bg-primary);
+      border-radius: 8px;
+    }
+
+    .examples-section h3 {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+    }
+
+    .example-chips {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .example-chip {
+      padding: 0.4rem 0.8rem;
+      background-color: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .example-chip:hover {
+      background-color: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+
+    /* ===== Footer ===== */
+    footer {
+      margin-top: auto;
+      padding: 1rem;
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      background-color: var(--bg-secondary);
+    }
+
+    /* ===== Responsive Design ===== */
+    @media (max-width: 600px) {
+      header {
+        padding: 0.75rem 1rem;
+      }
+
+      header h1 {
+        font-size: 1.2rem;
+      }
+
+      .tab-btn {
+        padding: 0.6rem 1rem;
+        font-size: 0.9rem;
+      }
+
+      .calc-display {
+        padding: 0.75rem;
+      }
+
+      .calc-result {
+        font-size: 1.4rem;
+      }
+
+      .calc-btn {
+        padding: 0.8rem;
+        font-size: 1rem;
+      }
+
+      #graphCanvas {
+        height: 300px;
+      }
+
+      .domain-controls {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    /* ===== Utility Classes ===== */
+    .hidden {
+      display: none !important;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header>
+    <h1>Calculator <span>&</span> Grapher</h1>
+  </header>
+
+  <!-- Tab Navigation -->
+  <nav class="tab-nav" role="navigation" aria-label="Main tabs">
+    <button id="calcTab" class="tab-btn active" aria-controls="calculatorSection" aria-selected="true">Calculator</button>
+    <button id="graphTab" class="tab-btn" aria-controls="grapherSection" aria-selected="false">Grapher</button>
+  </nav>
+
+  <!-- Calculator Section -->
+  <main class="tab-content active" id="calculatorSection" role="tabpanel">
+    <div class="calculator">
+      <!-- Display -->
+      <div class="calc-display" aria-live="polite">
+        <div id="expressionDisplay" class="calc-expression"></div>
+        <div id="resultDisplay" class="calc-result">0</div>
+      </div>
+
+      <!-- Buttons -->
+      <div class="calc-buttons">
+        <!-- Row 1: Clear, Backspace, Parentheses -->
+        <button class="calc-btn clear" data-action="clear">AC</button>
+        <button class="calc-btn operator" data-action="backspace">⌫</button>
+        <button class="calc-btn function" data-action="parenthesis">( )</button>
+        <button class="calc-btn operator" data-action="operator" data-value="/">÷</button>
+
+        <!-- Row 2: Numbers 7-9, Multiply -->
+        <button class="calc-btn number" data-action="number" data-value="7">7</button>
+        <button class="calc-btn number" data-action="number" data-value="8">8</button>
+        <button class="calc-btn number" data-action="number" data-value="9">9</button>
+        <button class="calc-btn operator" data-action="operator" data-value="*">×</button>
+
+        <!-- Row 3: Numbers 4-6, Subtract -->
+        <button class="calc-btn number" data-action="number" data-value="4">4</button>
+        <button class="calc-btn number" data-action="number" data-value="5">5</button>
+        <button class="calc-btn number" data-action="number" data-value="6">6</button>
+        <button class="calc-btn operator" data-action="operator" data-value="-">−</button>
+
+        <!-- Row 4: Numbers 1-3, Add -->
+        <button class="calc-btn number" data-action="number" data-value="1">1</button>
+        <button class="calc-btn number" data-action="number" data-value="2">2</button>
+        <button class="calc-btn number" data-action="number" data-value="3">3</button>
+        <button class="calc-btn operator" data-action="operator" data-value="+">+</button>
+
+        <!-- Row 5: Decimal, Zero, Equals -->
+        <button class="calc-btn number" data-action="decimal">.</button>
+        <button class="calc-btn number span-2" data-action="number" data-value="0">0</button>
+        <button class="calc-btn equals" data-action="calculate">=</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Grapher Section -->
+  <section class="tab-content" id="grapherSection" role="tabpanel">
+    <div class="graph-container">
+      <!-- Function Input -->
+      <div class="graph-input-group">
+        <div style="flex: 1;">
+          <label for="functionInput">Enter function (use x as variable):</label>
+          <input
+            type="text"
+            id="functionInput"
+            placeholder="e.g. sin(x), x^2, 2*x+1"
+            aria-label="Function expression to graph"
+          />
+        </div>
+      </div>
+
+      <!-- Domain Controls -->
+      <div class="domain-controls">
+        <div class="domain-control">
+          <label for="xMin">X Min:</label>
+          <input type="number" id="xMin" value="-10" step="1" />
+        </div>
+        <div class="domain-control">
+          <label for="xMax">X Max:</label>
+          <input type="number" id="xMax" value="10" step="1" />
+        </div>
+        <div class="domain-control">
+          <label for="yMin">Y Min (optional):</label>
+          <input type="number" id="yMin" placeholder="Auto" step="1" />
+        </div>
+        <div class="domain-control">
+          <label for="yMax">Y Max (optional):</label>
+          <input type="number" id="yMax" placeholder="Auto" step="1" />
+        </div>
+      </div>
+
+      <!-- Canvas Wrapper -->
+      <div class="graph-canvas-wrapper">
+        <canvas id="graphCanvas" width="800" height="400"></canvas>
+      </div>
+
+      <!-- Message Area -->
+      <div id="graphMessage" class="graph-message hidden"></div>
+
+      <!-- Controls -->
+      <div class="graph-controls">
+        <button id="plotBtn" class="graph-btn primary">Plot Graph</button>
+        <button id="clearGraphBtn" class="graph-btn secondary">Clear</button>
+      </div>
+
+      <!-- Examples -->
+      <div class="examples-section">
+        <h3>Try these examples:</h3>
+        <div class="example-chips">
+          <span class="example-chip" data-function="sin(x)">sin(x)</span>
+          <span class="example-chip" data-function="x^2">x²</span>
+          <span class="example-chip" data-function="2*x+1">2x + 1</span>
+          <span class="example-chip" data-function="cos(x)">cos(x)</span>
+          <span class="example-chip" data-function="sqrt(abs(x))">√|x|</span>
+          <span class="example-chip" data-function="log(x^2+1)">ln(x²+1)</span>
+          <span class="example-chip" data-function="tan(x)">tan(x)</span>
+          <span class="example-chip" data-function="exp(-x*x)">e^(-x²)</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <p>Calculator & Grapher PWA • Works Offline</p>
+  </footer>
+
+  <!-- Application Script -->
+  <script>
+    // ===== Tab Navigation =====
+    const calcTab = document.getElementById('calcTab');
+    const graphTab = document.getElementById('graphTab');
+    const calculatorSection = document.getElementById('calculatorSection');
+    const grapherSection = document.getElementById('grapherSection');
+
+    calcTab.addEventListener('click', () => {
+      switchTab('calculator');
+    });
+
+    graphTab.addEventListener('click', () => {
+      switchTab('grapher');
+    });
+
+    function switchTab(tab) {
+      if (tab === 'calculator') {
+        calcTab.classList.add('active');
+        graphTab.classList.remove('active');
+        calculatorSection.classList.add('active');
+        grapherSection.classList.remove('active');
+      } else {
+        graphTab.classList.add('active');
+        calcTab.classList.remove('active');
+        grapherSection.classList.add('active');
+        calculatorSection.classList.remove('active');
+      }
+    }
+
+    // ===== Calculator Logic =====
+    class Calculator {
+      constructor() {
+        this.expression = '';
+        this.lastResult = null;
+        this.display = document.getElementById('expressionDisplay');
+        this.result = document.getElementById('resultDisplay');
+      }
+
+      handleAction(action, value) {
+        switch (action) {
+          case 'clear':
+            this.clear();
+            break;
+          case 'backspace':
+            this.backspace();
+            break;
+          case 'number':
+          case 'decimal':
+            this.appendValue(value);
+            break;
+          case 'operator':
+            this.appendOperator(value);
+            break;
+          case 'parenthesis':
+            this.toggleParenthesis();
+            break;
+          case 'calculate':
+            this.calculate();
+            break;
+        }
+      }
+
+      clear() {
+        this.expression = '';
+        this.lastResult = null;
+        this.display.textContent = '';
+        this.result.textContent = '0';
+      }
+
+      backspace() {
+        // Remove last character (handle multi-char operators)
+        const multiCharOps = ['+', '-', '*', '/', '^'];
+        for (const op of multiCharOps) {
+          if (this.expression.endsWith(op)) {
+            this.expression = this.expression.slice(0, -op.length);
+            this.display.textContent = this.formatExpression(this.expression);
+            return;
+          }
+        }
+        this.expression = this.expression.slice(0, -1);
+        this.display.textContent = this.formatExpression(this.expression);
+      }
+
+      appendValue(value) {
+        if (this.lastResult !== null && this.expression === '') {
+          // Continue from previous result
+          this.lastResult = null;
+        }
+        this.expression += value;
+        this.display.textContent = this.formatExpression(this.expression);
+      }
+
+      appendOperator(value) {
+        if (this.lastResult !== null && this.expression === '') {
+          // Continue from previous result
+          this.expression = String(this.lastResult);
+        }
+        
+        // Prevent double operators
+        const lastChar = this.expression.slice(-1);
+        if (['+', '-', '*', '/', '^'].includes(lastChar)) {
+          // Replace last operator
+          this.expression = this.expression.slice(0, -1) + value;
+        } else {
+          this.expression += value;
+        }
+        
+        this.display.textContent = this.formatExpression(this.expression);
+      }
+
+      toggleParenthesis() {
+        const openCount = (this.expression.match(/\(/g) || []).length;
+        const closeCount = (this.expression.match(/\)/g) || []).length;
+
+        if (closeCount < openCount) {
+          this.expression += ')';
+        } else if (this.expression.length > 0) {
+          this.expression += '(';
+        }
+
+        this.display.textContent = this.formatExpression(this.expression);
+      }
+
+      calculate() {
+        try {
+          const result = evaluateExpression(this.expression);
+          this.lastResult = result;
+          this.result.textContent = formatNumber(result);
+        } catch (error) {
+          this.result.textContent = 'Error';
+          console.error('Calculation error:', error);
+        }
+      }
+
+      formatExpression(expr) {
+        // Replace operators for display
+        return expr
+          .replace(/\*/g, '×')
+          .replace(/\//g, '÷');
+      }
+    }
+
+    // ===== Safe Expression Evaluator (no eval!) =====
+    
+    /**
+     * Safely parse and evaluate a mathematical expression string.
+     * Supports: +, -, *, /, ^ (power), parentheses
+     * Functions: sin, cos, tan, asin, acos, atan, log, ln, sqrt, abs, exp, floor, ceil
+     * Constants: pi (π), e (Euler's number)
+     */
+    function tokenize(expr) {
+      const tokens = [];
+      let current = '';
+      let i = 0;
+
+      while (i < expr.length) {
+        const char = expr[i];
+
+        // Skip whitespace
+        if (char === ' ') {
+          i++;
+          continue;
+        }
+
+        // Operators and parentheses
+        if ('+-*/^()'.includes(char)) {
+          if (current) {
+            tokens.push({ type: 'number', value: parseFloat(current) });
+            current = '';
+          }
+          tokens.push({ type: 'operator', value: char });
+          i++;
+          continue;
+        }
+
+        // Handle ^ as power operator
+        if (char === '^') {
+          tokens.push({ type: 'operator', value: '^' });
+          i++;
+          continue;
+        }
+
+        // Numbers (including decimals)
+        if (/[0-9.]/.test(char)) {
+          current += char;
+          i++;
+          continue;
+        }
+
+        // Functions and constants (letters)
+        if (/[a-zA-Z]/.test(char)) {
+          current += char;
+          i++;
+          continue;
+        }
+
+        // Unknown character
+        throw new Error(`Unexpected character: ${char}`);
+      }
+
+      // Push any remaining number
+      if (current) {
+        tokens.push({ type: 'constant', value: current });
+      }
+
+      return tokens;
+    }
+
+    const FUNCTIONS = {
+      sin: Math.sin,
+      cos: Math.cos,
+      tan: Math.tan,
+      asin: Math.asin,
+      acos: Math.acos,
+      atan: Math.atan,
+      log: (x) => Math.log10(x),  // base-10 log
+      ln: (x) => Math.log(x),     // natural log
+      sqrt: Math.sqrt,
+      abs: Math.abs,
+      exp: Math.exp,
+      floor: Math.floor,
+      ceil: Math.ceil,
+      pow: (x, y) => Math.pow(x, y)
+    };
+
+    const CONSTANTS = {
+      pi: Math.PI,
+      e: Math.E
+    };
+
+    /**
+     * Evaluate a mathematical expression string safely.
+     * @param {string} expr - The expression to evaluate
+     * @param {number|null} xVal - For graphing: value of x (or null for calculator)
+     * @returns {number} The result
+     */
+    function evaluateExpression(expr, xVal = null) {
+      if (!expr || expr.trim() === '') {
+        throw new Error('Empty expression');
+      }
+
+      const tokens = tokenize(expr);
+      let pos = 0;
+
+      function parseExpression() {
+        let result = parseTerm();
+
+        while (pos < tokens.length && tokens[pos].type === 'operator') {
+          const op = tokens[pos].value;
+          if (op !== '+' && op !== '-') break;
+          pos++;
+          const right = parseTerm();
+          if (op === '+') result += right;
+          else result -= right;
+        }
+
+        return result;
+      }
+
+      function parseTerm() {
+        let result = parsePower();
+
+        while (pos < tokens.length && tokens[pos].type === 'operator') {
+          const op = tokens[pos].value;
+          if (op !== '*' && op !== '/') break;
+          pos++;
+          const right = parsePower();
+          if (op === '*') result *= right;
+          else {
+            if (right === 0) throw new Error('Division by zero');
+            result /= right;
+          }
+        }
+
+        return result;
+      }
+
+      function parsePower() {
+        let result = parseUnary();
+
+        while (pos < tokens.length && tokens[pos].type === 'operator' && tokens[pos].value === '^') {
+          pos++;
+          const exponent = parsePower(); // Right-associative
+          result = Math.pow(result, exponent);
+        }
+
+        return result;
+      }
+
+      function parseUnary() {
+        if (pos < tokens.length && tokens[pos].type === 'operator' && tokens[pos].value === '-') {
+          pos++;
+          return -parseUnary();
+        }
+
+        if (pos < tokens.length && tokens[pos].type === 'operator' && tokens[pos].value === '+') {
+          pos++;
+          return parseUnary();
+        }
+
+        return parsePrimary();
+      }
+
+      function parsePrimary() {
+        if (pos >= tokens.length) {
+          throw new Error('Unexpected end of expression');
+        }
+
+        const token = tokens[pos];
+
+        // Number literal
+        if (token.type === 'number') {
+          pos++;
+          return token.value;
+        }
+
+        // Function call (e.g., sin(x))
+        if (token.type === 'constant' && FUNCTIONS[token.value.toLowerCase()]) {
+          const funcName = token.value.toLowerCase();
+          pos++;
+
+          // Expect opening parenthesis
+          if (pos < tokens.length && tokens[pos].type === 'operator' && tokens[pos].value === '(') {
+            pos++;
+            const args = [];
+
+            // Parse arguments (comma-separated for multi-arg functions)
+            args.push(parseExpression());
+
+            while (pos < tokens.length && tokens[pos].type === 'operator' && tokens[pos].value === ',') {
+              pos++;
+              args.push(parseExpression());
+            }
+
+            // Expect closing parenthesis
+            if (pos < tokens.length && tokens[pos].type === 'operator' && tokens[pos].value === ')') {
+              pos++;
+            } else {
+              throw new Error('Missing closing parenthesis');
+            }
+
+            // Call the function with appropriate arguments
+            const func = FUNCTIONS[funcName];
+            if (args.length === 1) {
+              return func(args[0]);
+            } else if (args.length === 2) {
+              return func(args[0], args[1]);
+            } else {
+              throw new Error(`Function ${funcName} expects 1 or 2 arguments`);
+            }
+          } else {
+            // Single argument (e.g., sin x)
+            const arg = parsePrimary();
+            return FUNCTIONS[funcName](arg);
+          }
+        }
+
+        // Constant (pi, e)
+        if (token.type === 'constant' && CONSTANTS.hasOwnProperty(token.value.toLowerCase())) {
+          pos++;
+          return CONSTANTS[token.value.toLowerCase()];
+        }
+
+        // Variable x (for graphing)
+        if (token.type === 'constant' && token.value.toLowerCase() === 'x') {
+          pos++;
+          if (xVal === null) throw new Error('Variable x requires a value');
+          return xVal;
+        }
+
+        throw new Error(`Unknown token: ${token.value}`);
+      }
+
+      const result = parseExpression();
+
+      if (pos < tokens.length) {
+        throw new Error('Unexpected token after expression');
+      }
+
+      return result;
+    }
+
+    /**
+     * Format a number for display (truncate excessive decimals)
+     */
+    function formatNumber(num) {
+      if (typeof num !== 'number' || isNaN(num)) return 'NaN';
+      if (!isFinite(num)) return num > 0 ? '∞' : '-∞';
+      
+      // Round to avoid floating point artifacts
+      const rounded = Math.round(num * 1e10) / 1e10;
+      const str = String(rounded);
+      
+      // Truncate to reasonable length
+      if (str.length > 15) {
+        return parseFloat(rounded.toPrecision(10)).toString();
+      }
+      
+      return str;
+    }
+
+    // Initialize calculator
+    const calculator = new Calculator();
+
+    // Attach event listeners to calculator buttons
+    document.querySelectorAll('.calc-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const action = btn.dataset.action;
+        const value = btn.dataset.value || '.';
+        calculator.handleAction(action, value);
+      });
+    });
+
+    // Support keyboard input for calculator
+    document.addEventListener('keydown', (e) => {
+      if (!calculatorSection.classList.contains('active')) return;
+
+      const key = e.key;
+      if (/[0-9.]/.test(key)) {
+        calculator.handleAction('number', key);
+      } else if (['+', '-', '*', '/', '^'].includes(key)) {
+        calculator.handleAction('operator', key);
+      } else if (key === '(' || key === ')') {
+        calculator.handleAction('parenthesis', key);
+      } else if (key === 'Enter') {
+        calculator.handleAction('calculate');
+      } else if (key === 'Escape' || key === 'c' || key === 'C') {
+        calculator.handleAction('clear');
+      } else if (key === 'Backspace') {
+        calculator.handleAction('backspace');
+      }
+    });
+
+    // ===== Graphing Logic =====
+
+    const canvas = document.getElementById('graphCanvas');
+    const ctx = canvas.getContext('2d');
+    const functionInput = document.getElementById('functionInput');
+    const xMinInput = document.getElementById('xMin');
+    const xMaxInput = document.getElementById('xMax');
+    const yMinInput = document.getElementById('yMin');
+    const yMaxInput = document.getElementById('yMax');
+    const graphMessage = document.getElementById('graphMessage');
+    const plotBtn = document.getElementById('plotBtn');
+    const clearGraphBtn = document.getElementById('clearGraphBtn');
+
+    // Handle canvas resizing for high-DPI displays
+    function resizeCanvas() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = 400 * dpr;
+      ctx.scale(dpr, dpr);
+    }
+
+    // Initialize canvas size
+    resizeCanvas();
+    window.addEventListener('resize', () => {
+      if (grapherSection.classList.contains('active')) {
+        resizeCanvas();
+      }
+    });
+
+    /**
+     * Parse user input: replace ^ with Math.pow equivalent, handle common aliases
+     */
+    function preprocessFunction(input) {
+      // Replace ^ with ** for power (handled by our parser as ^)
+      // Handle common aliases: e.g., 'ln' stays as ln, 'log' stays as log
+      // Replace common shorthand notations
+      let processed = input
+        .replace(/ln\s*\(/g, 'ln(')
+        .replace(/log\s*\(/g, 'log(');
+      return processed;
+    }
+
+    /**
+     * Generate plot points for a function across the domain
+     */
+    function generatePlotPoints(funcStr, xMin, xMax) {
+      const points = [];
+      const numSamples = 1000; // High resolution for smooth curves
+      const step = (xMax - xMin) / numSamples;
+
+      for (let i = 0; i <= numSamples; i++) {
+        const x = xMin + i * step;
+        try {
+          const processedFunc = preprocessFunction(funcStr);
+          const y = evaluateExpression(processedFunc, x);
+          
+          // Skip NaN and Infinity values
+          if (typeof y === 'number' && !isNaN(y) && isFinite(y)) {
+            points.push({ x, y });
+          }
+        } catch (error) {
+          // Skip points that can't be evaluated
+          continue;
+        }
+      }
+
+      return points;
+    }
+
+    /**
+     * Calculate auto-range for y-axis based on plotted points
+     */
+    function calculateYRange(points) {
+      if (points.length === 0) return { yMin: -10, yMax: 10 };
+
+      let minY = Infinity;
+      let maxY = -Infinity;
+
+      for (const point of points) {
+        if (point.y < minY) minY = point.y;
+        if (point.y > maxY) maxY = point.y;
+      }
+
+      // Add padding (10% of range)
+      const padding = (maxY - minY) * 0.1;
+      return {
+        yMin: Math.min(minY - padding, 0),
+        yMax: Math.max(maxY + padding, 1)
+      };
+    }
+
+    /**
+     * Draw the graph on canvas with axes and grid
+     */
+    function drawGraph(points, xMin, xMax, yMin, yMax) {
+      const width = canvas.width / (window.devicePixelRatio || 1);
+      const height = 400;
+
+      // Clear canvas
+      ctx.clearRect(0, 0, width, height);
+
+      // Draw background
+      ctx.fillStyle = '#0d1b2a';
+      ctx.fillRect(0, 0, width, height);
+
+      // Calculate scaling factors
+      const xScale = (width - 80) / (xMax - xMin); // Leave margin
+      const yScale = (height - 60) / (yMax - yMin);
+
+      // Calculate origin position on canvas
+      const originX = 40 + (0 - xMin) * xScale;
+      const originY = height - 40 + (yMin) * yScale; // Flip Y axis
+
+      // Draw grid lines
+      ctx.strokeStyle = 'rgba(168, 178, 209, 0.15)';
+      ctx.lineWidth = 1;
+
+      // Vertical grid lines (every 1 unit on x-axis)
+      const xStep = niceStep(xMax - xMin);
+      for (let x = Math.floor(xMin / xStep) * xStep; x <= xMax; x += xStep) {
+        const canvasX = 40 + (x - xMin) * xScale;
+        ctx.beginPath();
+        ctx.moveTo(canvasX, 20);
+        ctx.lineTo(canvasX, height - 40);
+        ctx.stroke();
+
+        // Label x-axis values (skip if too dense)
+        const label = Math.abs(x) < 1e-10 ? '0' : parseFloat(x.toPrecision(4)).toString();
+        ctx.fillStyle = 'rgba(168, 178, 209, 0.6)';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(label, canvasX, height - 25);
+      }
+
+      // Horizontal grid lines (every 1 unit on y-axis)
+      const yStep = niceStep(yMax - yMin);
+      for (let y = Math.floor(yMin / yStep) * yStep; y <= yMax; y += yStep) {
+        const canvasY = height - 40 + (yMin - y) * yScale;
+        ctx.beginPath();
+        ctx.moveTo(40, canvasY);
+        ctx.lineTo(width - 20, canvasY);
+        ctx.stroke();
+
+        // Label y-axis values (skip if too dense)
+        const label = Math.abs(y) < 1e-10 ? '0' : parseFloat(y.toPrecision(4)).toString();
+        ctx.fillStyle = 'rgba(168, 178, 209, 0.6)';
+        ctx.textAlign = 'right';
+        ctx.fillText(label, 35, canvasY + 4);
+      }
+
+      // Draw axes (x=0 and y=0)
+      ctx.strokeStyle = 'rgba(233, 69, 96, 0.7)';
+      ctx.lineWidth = 2;
+
+      // X-axis (y=0)
+      if (yMin <= 0 && yMax >= 0) {
+        ctx.beginPath();
+        const axisY = height - 40 + (yMin) * yScale;
+        ctx.moveTo(40, axisY);
+        ctx.lineTo(width - 20, axisY);
+        ctx.stroke();
+      }
+
+      // Y-axis (x=0)
+      if (xMin <= 0 && xMax >= 0) {
+        ctx.beginPath();
+        const axisX = 40 + (0 - xMin) * xScale;
+        ctx.moveTo(axisX, 20);
+        ctx.lineTo(axisX, height - 40);
+        ctx.stroke();
+      }
+
+      // Draw function curve (only finite segments)
+      if (points.length > 1) {
+        ctx.strokeStyle = '#4ecca3';
+        ctx.lineWidth = 2.5;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+
+        let drawing = false;
+        ctx.beginPath();
+
+        for (let i = 0; i < points.length; i++) {
+          const point = points[i];
+          const canvasX = 40 + (point.x - xMin) * xScale;
+          const canvasY = height - 40 + (yMin - point.y) * yScale;
+
+          // Skip if out of bounds or discontinuous (large jump = likely asymptote)
+          const prevPoint = i > 0 ? points[i - 1] : null;
+          
+          if (prevPoint) {
+            const prevCanvasY = height - 40 + (yMin - prevPoint.y) * yScale;
+            const deltaY = Math.abs(canvasY - prevCanvasY);
+            
+            // If the jump is too large, it's likely an asymptote - stop drawing
+            if (deltaY > height * 0.9) {
+              ctx.stroke();
+              ctx.beginPath();
+              drawing = false;
+              continue;
+            }
+          }
+
+          if (!drawing) {
+            ctx.moveTo(canvasX, canvasY);
+            drawing = true;
+          } else {
+            ctx.lineTo(canvasX, canvasY);
+          }
+        }
+
+        ctx.stroke();
+      }
+
+      // Draw origin label
+      if (xMin <= 0 && xMax >= 0 && yMin <= 0 && yMax >= 0) {
+        const originCanvasX = 40 + (0 - xMin) * xScale;
+        const originCanvasY = height - 40 + (yMin) * yScale;
+        ctx.fillStyle = 'rgba(233, 69, 96, 0.8)';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText('(0, 0)', originCanvasX - 5, originCanvasY + 15);
+      }
+
+      // Draw axis labels
+      ctx.fillStyle = 'rgba(233, 69, 96, 0.7)';
+      ctx.font = 'bold 14px sans-serif';
+
+      // X-axis label
+      ctx.textAlign = 'center';
+      ctx.fillText('x', width - 15, originY + 20);
+
+      // Y-axis label
+      ctx.textAlign = 'left';
+      ctx.fillText('y', originX - 15, 30);
+    }
+
+    /**
+     * Calculate nice step size for grid lines (1, 2, 5, 10, etc.)
+     */
+    function niceStep(range) {
+      const rough = range / 10; // Aim for ~10 grid lines
+      const magnitude = Math.pow(10, Math.floor(Math.log10(rough)));
+      const normalized = rough / magnitude;
+
+      let step;
+      if (normalized <= 1) {
+        step = magnitude;
+      } else if (normalized <= 2) {
+        step = 2 * magnitude;
+      } else if (normalized <= 5) {
+        step = 5 * magnitude;
+      } else {
+        step = 10 * magnitude;
+      }
+
+      return step;
+    }
+
+    /**
+     * Show message on graph UI
+     */
+    function showMessage(text, type) {
+      graphMessage.textContent = text;
+      graphMessage.className = `graph-message ${type}`;
+    }
+
+    function hideMessage() {
+      graphMessage.className = 'graph-message hidden';
+    }
+
+    /**
+     * Plot the function graph based on current inputs
+     */
+    function plotGraph() {
+      const funcStr = functionInput.value.trim();
+
+      if (!funcStr) {
+        showMessage('Please enter a function (e.g., sin(x), x^2)', 'error');
+        return;
+      }
+
+      // Parse domain values
+      const xMin = parseFloat(xMinInput.value);
+      const xMax = parseFloat(xMaxInput.value);
+
+      if (isNaN(xMin) || isNaN(xMax)) {
+        showMessage('Invalid domain values. Please enter valid numbers for X Min and X Max.', 'error');
+        return;
+      }
+
+      if (xMin >= xMax) {
+        showMessage('X Min must be less than X Max.', 'error');
+        return;
+      }
+
+      // Validate the expression first by trying to evaluate at x = 0 (or a small value)
+      try {
+        const testResult = evaluateExpression(preprocessFunction(funcStr), 0);
+      } catch (error) {
+        // Don't show error here - just warn that the expression might be invalid
+      }
+
+      // Generate plot points
+      let points = generatePlotPoints(funcStr, xMin, xMax);
+
+      if (points.length === 0) {
+        showMessage('No points to plot. The function may be undefined in this domain.', 'error');
+        return;
+      }
+
+      // Determine Y range (manual or auto)
+      let yMin, yMax;
+      const manualYMin = parseFloat(yMinInput.value);
+      const manualYMax = parseFloat(yMaxInput.value);
+
+      if (!isNaN(manualYMin) && !isNaN(manualYMax)) {
+        yMin = manualYMin;
+        yMax = manualYMax;
+      } else {
+        const autoRange = calculateYRange(points);
+        yMin = isNaN(manualYMin) ? autoRange.yMin : manualYMin;
+        yMax = isNaN(manualYMax) ? autoRange.yMax : manualYMax;
+      }
+
+      // Draw the graph
+      drawGraph(points, xMin, xMax, yMin, yMax);
+      hideMessage();
+    }
+
+    /**
+     * Clear the graph canvas
+     */
+    function clearGraph() {
+      const width = canvas.width / (window.devicePixelRatio || 1);
+      ctx.clearRect(0, 0, width, 400);
+      functionInput.value = '';
+      xMinInput.value = '-10';
+      xMaxInput.value = '10';
+      yMinInput.value = '';
+      yMaxInput.value = '';
+      hideMessage();
+    }
+
+    // Event listeners for graph controls
+    plotBtn.addEventListener('click', () => {
+      plotGraph();
+    });
+
+    clearGraphBtn.addEventListener('click', () => {
+      clearGraph();
+    });
+
+    // Allow Enter key to plot in function input
+    functionInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        plotGraph();
+      }
+    });
+
+    // Example chips - click to fill function input
+    document.querySelectorAll('.example-chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const func = chip.dataset.function;
+        functionInput.value = func;
+        plotGraph();
+      });
+    });
+
+    // ===== Service Worker Registration =====
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js')
+          .then((registration) => {
+            console.log('[PWA] Service Worker registered:', registration.scope);
+          })
+          .catch((error) => {
+            console.error('[PWA] Service Worker registration failed:', error);
+          });
+      });
+    }
+
+    // ===== Offline Support: Show message when offline =====
+    function updateOnlineStatus() {
+      const status = document.createElement('div');
+      status.id = 'offlineStatus';
+      status.style.cssText = `
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background-color: #ff4757;
+        color: white;
+        text-align: center;
+        padding: 0.5rem;
+        font-size: 0.85rem;
+        display: none;
+      `;
+      status.textContent = '⚠️ You are offline';
+      document.body.appendChild(status);
+
+      function updateStatus() {
+        status.style.display = navigator.onLine ? 'none' : 'block';
+      }
+
+      window.addEventListener('online', updateStatus);
+      window.addEventListener('offline', updateStatus);
+    }
+
+    updateOnlineStatus();
+  </script>
+</body>
+</html>
