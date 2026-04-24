@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CalcGraph PWA</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <style>
+    /* ── Reset & Base ─────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #1a1a2e; color: #e0e0e0;
+      min-height: 100vh; display: flex; justify-content: center;
+    }
+
+    /* ── App Container ─────────────────────────────────── */
+    #app {
+      width: 100%; max-width: 480px; padding: 16px;
+    }
+
+    /* ── Tabs ──────────────────────────────────────────── */
+    .tab-bar {
+      display: flex; gap: 4px; margin-bottom: 16px;
+    }
+    .tab-btn {
+      flex: 1; padding: 10px 0; border: none; border-radius: 8px;
+      background: #16213e; color: #aaa; font-size: 15px;
+      cursor: pointer; transition: background .2s, color .2s;
+    }
+    .tab-btn.active {
+      background: #0f3460; color: #e94560;
+    }
+
+    /* ── Calculator Panel ──────────────────────────────── */
+    #calc-panel { display: block; }
+
+    .display {
+      background: #0f3460; border-radius: 10px;
+      padding: 12px 16px; text-align: right;
+      margin-bottom: 12px; min-height: 64px;
+    }
+    .expression {
+      font-size: 13px; color: #888; min-height: 16px;
+      word-break: break-all;
+    }
+    .current {
+      font-size: 28px; margin-top: 4px;
+    }
+
+    .buttons {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+    }
+    .buttons button {
+      padding: 16px; border: none; border-radius: 8px;
+      font-size: 20px; cursor: pointer;
+      transition: background .15s, transform .1s;
+    }
+    .buttons button:active { transform: scale(0.95); }
+
+    /* Number / decimal */
+    .btn-num { background: #16213e; color: #fff; }
+    /* Operator */
+    .btn-op  { background: #0f3460; color: #e94560; }
+    /* Special */
+    .btn-spc { background: #1a1a2e; color: #aaa; }
+    /* Clear */
+    .btn-clr { background: #c0392b; color: #fff; }
+    /* Graph action */
+    .btn-graph { background: #27ae60; color: #fff; grid-column: span 4; }
+
+    /* ── Graph Panel (hidden by default) ──────────────── */
+    #graph-panel { display: none; }
+
+    .input-group {
+      margin-bottom: 12px;
+    }
+    .input-group label {
+      display: block; font-size: 13px; color: #aaa;
+      margin-bottom: 4px;
+    }
+    .input-group input {
+      width: 100%; padding: 8px 12px; border-radius: 6px;
+      border: 1px solid #333; background: #0f3460;
+      color: #fff; font-size: 15px;
+    }
+
+    .range-row {
+      display: flex; gap: 8px;
+    }
+    .range-row > div { flex: 1; }
+
+    #render-btn {
+      width: 100%; padding: 12px; border: none; border-radius: 8px;
+      background: #e94560; color: #fff; font-size: 16px;
+      cursor: pointer; margin-top: 8px;
+    }
+
+    #error-msg {
+      color: #e94560; font-size: 13px;
+      min-height: 18px; margin-top: 6px;
+    }
+
+    canvas#graph-canvas {
+      width: 100%; border-radius: 8px;
+      background: #fdf6e3; margin-top: 12px;
+    }
+
+    /* ── Service worker install prompt (hidden) ───────── */
+  </style>
+</head>
+<body>
+
+<div id="app">
+  <!-- Tab navigation -->
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="calc">Calculator</button>
+    <button class="tab-btn"   data-tab="graph">Graphing</button>
+  </div>
+
+  <!-- ═══════════ Calculator Panel ═══════════ -->
+  <div id="calc-panel">
+    <div class="display">
+      <div class="expression" id="calc-expr"></div>
+      <div class="current"    id="calc-current">0</div>
+    </div>
+    <div class="buttons">
+      <button class="btn-clr"  data-val="C">C</button>
+      <button class="btn-spc"  data-val="(">(​)</button>
+      <button class="btn-spc"  data-val=")">)</button>
+      <button class="btn-op"   data-val="/">÷</button>
+
+      <button class="btn-num"  data-val="7">7</button>
+      <button class="btn-num"  data-val="8">8</button>
+      <button class="btn-num"  data-val="9">9</button>
+      <button class="btn-op"   data-val="*">×</button>
+
+      <button class="btn-num"  data-val="4">4</button>
+      <button class="btn-num"  data-val="5">5</button>
+      <button class="btn-num"  data-val="6">6</button>
+      <button class="btn-op"   data-val="-">−</button>
+
+      <button class="btn-num"  data-val="1">1</button>
+      <button class="btn-num"  data-val="2">2</button>
+      <button class="btn-num"  data-val="3">3</button>
+      <button class="btn-op"   data-value=">+</button>
+
+      <button class="btn-spc"  data-val="sin(">sin</button>
+      <button class="btn-spc"  data-val="cos(">cos</button>
+      <button class="btn-num"   data-val="0">0</button>
+      <button class="btn-num"   data-val=".">.</button>
+
+      <!-- Special keys -->
+      <button class="btn-spc"  data-val="tan(">tan</button>
+      <button class="btn-spc"  data-val="sqrt(">√</button>
+      <button class="btn-spc"  data-val="^">xᵕ</button>
+      <button class="btn-op"   data-val="+">+</button>
+
+      <!-- Graph action (spans full width) -->
+      <button class="btn-graph"  id="to-graph-btn">Graph This →</button>
+    </div>
+  </div>
+
+  <!-- ═══════════ Graphing Panel ═══════════ -->
+  <div id="graph-panel">
+    <div class="input-group">
+      <label for="expr-input">f(x) =</label>
+      <input type="text" id="expr-input"
+             placeholder="e.g. sin(x), x^2, sqrt(x)" />
+    </div>
+
+    <div class="range-row">
+      <div class="input-group">
+        <label for="xmin">x min</label>
+        <input type="number" id="xmin" value="-10" />
+      </div>
+      <div class="input-group">
+        <label for="xmax">x max</label>
+        <input type="number" id="xmax" value="10" />
+      </div>
+    </div>
+
+    <button id="render-btn">Render</button>
+    <div id="error-msg"></div>
+
+    <!-- Canvas for rendering the graph -->
+    <canvas id="graph-canvas" width="800" height="500"></canvas>
+  </div>
+</div>
+
+<script>
+/* ================================================================
+   Safe Math Expression Parser  (tokenizer → shunting-yard → AST)
+   No eval() used.
+   ================================================================ */
+
+// ── Token types ────────────────────────────────────────────────
+const T = {
+  NUM: 'NUM',        // literal number
+  FN:  'FN',         // function name (sin, cos, …)
+  VAR: 'VAR',        // variable x
+  OP:  'OP',         // binary operator (+, -, *, /, ^)
+  LP:  'LP',         // left-parenthesis
+  RP:  'RP',         // right-parenthesis
+};
+
+// Operators with precedence and associativity.
+const OPS = {
+  '+': { p: 1, a: 'L' },
+  '-': { p: 1, a: 'L' },
+  '*': { p: 2, a: 'L' },
+  '/': { p: 2, a: 'L' },
+  '^': { p: 3, a: 'R' },   // right-associative (power)
+};
+
+// Supported unary operators.
+const UNARY = { '-': true };
+
+// Recognized functions (map to Math.*).
+const FUNCS = {
+  sin:  'sin', cos:  'cos',  tan:  'tan',
+  asin: 'asin', acos: 'acos', atan: 'atan',
+  sqrt: 'sqrt', abs:  'abs',
+  log:  'log',   // base-10
+  ln:   'ln',    // natural log (Math.log)
+  exp:  'exp'
+};
+
+// ── Tokeniser ────────────────────────────────────────────────
+function tokenize(expr) {
+  const tokens = [];
+  let i = 0,
+      src = expr.replace(/\s+/g, ''); // strip whitespace
+
+  while (i < src.length) {
+    const ch = src[i];
+
+    // Number (integer or decimal)
+    if (/\d/.test(ch) || (ch === '.' && i + 1 < src.length && /\d/.test(src[i + 1]))) {
+      let num = '';
+      while (i < src.length && (/\d/.test(src[i]) || src[i] === '.')) { num += src[i]; i++; }
+      tokens.push({ type: T.NUM, value: parseFloat(num) });
+      continue;
+    }
+
+    // Variable x (standalone)
+    if (ch === 'x') {
+      tokens.push({ type: T.VAR });
+      i++;
+      continue;
+    }
+
+    // Functions (word characters)
+    if (/[a-zA-Z]/.test(ch)) {
+      let word = '';
+      while (i < src.length && /[a-zA-Z]/.test(src[i])) { word += src[i]; i++; }
+      if (FUNCS[word] !== undefined) {
+        tokens.push({ type: T.FN, value: FUNCS[word] });
+      } else {
+        throw new SyntaxError(`Unknown function: ${word}`);
+      }
+      continue;
+    }
+
+    // Parentheses
+    if (ch === '(')  { tokens.push({ type: T.LP }); i++; continue; }
+    if (ch === ')')  { tokens.push({ type: T.RP }); i++; continue; }
+
+    // Operators  (handles unary `-` / `+`)  
+    if ('+-*/^'.includes(ch)) {
+      // Decide unary vs binary: `-` is unary when it follows
+      // another token that isn't a right-paren or number.
+      const isUnary = (tokens.length === 0 ||
+        tokens[tokens.length - 1].type !== T.NUM &&
+        tokens[tokens.length - 1].type !== T.RP);
+      if (isUnary) {
+        tokens.push({ type: 'UNARY', value: '-' });
+      } else {
+        tokens.push({ type: T.OP, value: ch });
+      }
+    } else {
+      throw new SyntaxError(`Unexpected character: ${ch}`);
+    }
+    i++;
+  }
+
+  // Implicit multiplication: number immediately before `(` or FN.
+  const augmented = [];
+  for (let i = 0; i < tokens.length - 1; i++) {
+    augmented.push(tokens[i]);
+    const t = tokens[i], n = tokens[i + 1];
+    if ((t.type === T.NUM || t.type === T.RP) && (n.type === T.LP || n.type === T.FN)) {
+      augmented.push({ type: T.OP, value: '*' });
+    }
+  }
+  augmented.push(tokens[tokens.length - 1]);
+
+  return augmented;
+}
+
+// ── Shunting-yard → AST (RPN-style tree) ─────────────────────
+function parseToAST(tokens) {
+  const out = [];   // output queue (tokens)
+  const stk = [];   // operator stack
+
+  for (const tok of tokens) {
+    switch (tok.type) {
+      case T.NUM:
+      case T.VAR:
+        out.push(tok); break;
+
+      case T.FN:
+        stk.push(tok); break;
+
+      case 'UNARY':
+        stk.push({ type: 'UNARY', value: '-' }); break;
+
+      case T.OP:
+        while (stk.length) {
+          const top = stk[stk.length - 1];
+          if (top.type === T.OP || top.type === 'UNARY') {
+            const a = OPS[top.value]?.a || 'L';
+            const pr = (OPS[top.value]?.p ?? 1);
+            if ((a === 'L' && tok.p <= pr) || (a === 'R' && tok.p < pr)) {
+              out.push(stk.pop());
+            } else break;
+          } else break;
+        }
+        stk.push(tok); break;
+
+      case T.LP: stk.push(tok); break;
+
+      case T.RP:
+        while (stk.length && stk[stk.length - 1].type !== T.LP) {
+          out.push(stk.pop());
+        }
+        if (!stk.length) throw new SyntaxError('Mismatched parentheses');
+        stk.pop(); // discard LP
+        if (stk.length && stk[stk.length - 1].type === T.FN) {
+          out.push(stk.pop());   // pop FN (postfix)
+        }
+        break;
+    }
+  }
+  while (stk.length) {
+    const top = stk.pop();
+    if (top.type === T.LP) throw new SyntaxError('Mismatched parentheses');
+    out.push(top);
+  }
+
+  return buildTree(out);
+}
+
+// Build a tree from postfix tokens.
+function buildTree(tokens) {
+  const stack = [];
+  for (const tok of tokens) {
+    if (tok.type === T.NUM || tok.type === T.VAR) {
+      stack.push(tok);
+    } else if (tok.value === '-') {  // unary minus
+      const child = stack.pop();
+      stack.push({ type: 'UNARY_MINUS', operand: child });
+    } else if (tok.type === T.OP) {
+      const right = stack.pop(), left = stack.pop();
+      stack.push({ type: 'BINOP', op: tok.value, left, right });
+    } else if (tok.type === T.FN) {
+      const arg = stack.pop();
+      stack.push({ type: 'FUNC', name: tok.value, arg });
+    }
+  }
+  return stack[0];   // single expression tree
+}
+
+// ── Evaluate the AST at a given x value. ─────────────────────
+function evaluate(ast, x) {
+  switch (ast.type) {
+    case T.NUM:    return ast.value;
+    case T.VAR:    return x;
+    case 'BINOP': {
+      const l = evaluate(ast.left,  x);
+      const r = evaluate(ast.right, x);
+      switch (ast.op) {
+        case '+': return l + r;
+        case '-': return l - r;
+        case '*': return l * r;
+        case '/': return r === 0 ? NaN : l / r;
+        case '^': return Math.pow(l, r);
+      }
+    }
+    case 'UNARY_MINUS': return -evaluate(ast.operand, x);
+    case 'FUNC': {
+      const v = evaluate(ast.arg, x);
+      switch (ast.name) {
+        case 'sin':  return Math.sin(v);
+        case 'cos':  return Math.cos(v);
+        case 'tan':  return Math.tan(v);
+        case 'asin': return Math.asin(v);
+        case 'acos': return Math.acos(v);
+        case 'atan': return Math.atan(v);
+        case 'sqrt': return v < 0 ? NaN : Math.sqrt(v);
+        case 'abs':  return Math.abs(v);
+        case 'log':  return v <= 0 ? NaN : Math.log10(v);
+        case 'ln':   return v <= 0 ? NaN : Math.log(v);
+        case 'exp':  return Math.exp(v);
+      }
+    }
+  }
+  throw new Error('Unknown AST node');
+}
+
+// ── Public: parse a string and get an evaluator. ─────────────
+function compileExpr(expr) {
+  const tokens = tokenize(expr);
+  const ast    = parseToAST(tokens);
+  return (x) => evaluate(ast, x);
+}
+
+/* ================================================================
+   Canvas Graph Renderer
+   ================================================================ */
+const canvas  = document.getElementById('graph-canvas');
+const ctx     = canvas.getContext('2d');
+
+function drawGraph(f, xmin, xmax) {
+  const W = canvas.width,
+        H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // Sample and find y-range.
+  const steps   = W;                // one sample per pixel column
+  let ymax = -Infinity, ymin = Infinity;
+  const ys = new Float64Array(steps);
+  for (let i = 0; i < steps; i++) {
+    const x = xmin + (i / (steps - 1)) * (xmax - xmin);
+    const y = f(x);
+    ys[i]   = y;
+    if (isFinite(y)) {
+      if (y > ymax) ymax = y;
+      if (y < ymin) ymin = y;
+    }
+  }
+  // Clamp range so we always show axes.
+  if (!isFinite(ymin)) { ymin = -ymax || -1; }
+  if (!isFinite(ymax)) { ymax = -ymin ||  1; }
+  const pad = (ymax - ymin) * 0.08 || 1;
+  let yMin = Math.min(ymin - pad, 0),
+      yMax = Math.max(ymax + pad, 0);
+
+  // ── Coordinate helpers ───────────────────────────────
+  const toX = (x) => ((x - xmin) / (xmax - xmin)) * W;
+  const toY = (y) => H - ((y - yMin) / (yMax - yMin)) * H;
+
+  // ── Grid lines ───────────────────────────────────────
+  ctx.strokeStyle = '#d0d0d0';
+  ctx.lineWidth   = 0.5;
+
+  // X-grid (integer ticks)
+  const xRange = xmax - xmin;
+  let xStep = niceStep(xRange / 8);
+  for (let gx = Math.ceil(xmin / xStep) * xStep; gx <= xmax; gx += xStep) {
+    const px = toX(gx);
+    ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke();
+  }
+  // Y-grid
+  const yRange = yMax - yMin;
+  let yStep = niceStep(yRange / 8);
+  for (let gy = Math.ceil(yMin / yStep) * yStep; gy <= yMax; gy += yStep) {
+    const py = toY(gy);
+    ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(W, py); ctx.stroke();
+  }
+
+  // ── Axes (x=0, y=0) ──────────────────────────────────
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth   = 1.5;
+
+  // x-axis (y=0)
+  if (yMin <= 0 && yMax >= 0) {
+    const py = toY(0);
+    ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(W, py); ctx.stroke();
+    labelAt(ctx, W - 10, py - 6, 'x=0', '#333');
+  }
+  // y-axis (x=0)
+  if (xmin <= 0 && xmax >= 0) {
+    const px = toX(0);
+    ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke();
+    labelAt(ctx, px + 4, 14, 'y=0', '#333');
+  }
+
+  // ── Tick labels ──────────────────────────────────────
+  ctx.fillStyle = '#333';
+  ctx.font      = '11px monospace';
+
+  // X ticks on bottom axis (y=0 line)
+  for (let gx = Math.ceil(xmin / xStep) * xStep; gx <= xmax; gx += xStep) {
+    if (Math.abs(gx) < 1e-9) continue; // skip origin
+    ctx.fillText(formatNum(gx), toX(gx), Math.min(toY(0) + 14, H - 2));
+  }
+
+  // Y ticks on left axis (x=0 line)
+  for (let gy = Math.ceil(yMin / yStep) * yStep; gy <= yMax; gy += yStep) {
+    if (Math.abs(gy) < 1e-9) continue;
+    ctx.fillText(formatNum(gy), 2, toY(gy) - 3);
+  }
+
+  // ── Plot the curve ───────────────────────────────────
+  ctx.strokeStyle = '#e94560';
+  ctx.lineWidth   = 2;
+  ctx.beginPath();
+  let drawing = false;
+  for (let i = 0; i < steps; i++) {
+    const px = toX(xmin + (i / (steps - 1)) * xRange);
+    const y  = ys[i];
+    if (!isFinite(y)) { drawing = false; continue; }
+    const py = toY(y);
+    if (!drawing) { ctx.moveTo(px, py); drawing = true; }
+    else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+}
+
+// ── Helpers for pretty axes ────────────────────────────────
+function niceStep(range) {
+  const raw = range / 8;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw / mag;
+  let nice;
+  if (norm <= 1)       nice = 1 * mag;
+  else if (norm <= 2)  nice = 2 * mag;
+  else if (norm <= 5)  nice = 5 * mag;
+  else                 nice = 10 * mag;
+  return nice || 1;
+}
+
+function formatNum(n) {
+  return Math.abs(n) >= 1000 ? n.toExponential(1)
+         : Math.abs(n) < 0.01 ? n.toExponential(1)
+         : Math.round(n * 100) / 100;
+}
+
+function labelAt(ctx, x, y, text, color) {
+  ctx.fillStyle = color || '#333';
+  ctx.font      = '12px sans-serif';
+  ctx.fillText(text, x, y);
+}
+
+/* ================================================================
+   Calculator Logic
+   ================================================================ */
+calcExpr  = '';
+pendingOp = null;     // pending binary operator (after number typed)
+calcCurrent = '0';    // what the display shows
+let waitingForSecond = false;
+let lastResult = null;
+
+const exprEl  = document.getElementById('calc-expr');
+curEl   = document.getElementById('calc-current');
+
+function updateDisplay() {
+  exprEl.textContent = calcExpr;
+  curEl.textContent  = calcCurrent;
+}
+
+function inputDigit(d) {
+  if (waitingForSecond || lastResult !== null) {
+    calcCurrent = d;
+    if (waitingForSecond) { calcExpr += ' ' + d; }
+    else { calcCurrent = (calcCurrent === '0' && d !== '.') ? d : calcCurrent + d; }
+    waitingForSecond = false;
+  } else {
+    calcCurrent = (calcCurrent === '0' && d !== '.') ? d : calcCurrent + d;
+  }
+  updateDisplay();
+}
+
+function inputOp(op) {
+  const cur = parseFloat(calcCurrent);
+  if (pendingOp && !waitingForSecond) {
+    calcCurrent = String(calcEval(parseFloat(lastResult), cur, pendingOp));
+  }
+  calcExpr += ' ' + cur + ' ' + op + ' ';
+  pendingOp = op;
+  lastResult = null;
+  waitingForSecond = true;
+  updateDisplay();
+}
+
+function calcEval(a, b, op) {
+  switch (op) {
+    case '+': return a + b;
+    case '-': return a - b;
+    case '*': return a * b;
+    case '/': return b === 0 ? NaN : a / b;
+    case '^': return Math.pow(a, b);
+  }
+}
+
+function inputFunc(name) {
+  calcExpr += name;
+  updateDisplay();
+}
+
+function inputParen(ch) {
+  calcExpr += ch;
+  updateDisplay();
+}
+
+function clearCalc() {
+  calcExpr = ''; pendingOp = null;
+  calcCurrent = '0'; waitingForSecond = false;
+  lastResult = null;
+  updateDisplay();
+}
+
+function doEquals() {
+  if (pendingOp === null) return;
+  const a = parseFloat(lastResult !== null ? lastResult : calcCurrent);
+  const b = parseFloat(calcCurrent);
+  const res = calcEval(a, b, pendingOp);
+  lastResult = String(res);
+  calcExpr += ' ' + b + ' =';
+  calcCurrent = String(res);
+  pendingOp = null;
+  waitingForSecond = true;   // next digit starts fresh
+  updateDisplay();
+}
+
+// ── Button click handler ────────────────────────────────────
+document.querySelector('.buttons').addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  const val = btn.dataset.val;
+  switch (val) {
+    case 'C':       clearCalc(); break;
+    case '=':      doEquals();  break;
+    default:
+      if (/^[\d.]$/.test(val))              inputDigit(val);
+      else if ('+-*/^'.includes(val))       inputOp(val);
+      else if (val === '(' || val === ')')  inputParen(val);
+      else                                   inputFunc(val);
+  }
+});
+
+/* ================================================================
+   Tab Navigation & Graph Integration
+   ================================================================ */
+document.querySelectorAll('.tab-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const tab = btn.dataset.tab;
+    document.getElementById('calc-panel').style.display  = (tab === 'calc') ? '' : 'none';
+    document.getElementById('graph-panel').style.display = (tab === 'graph') ? '' : 'none';
+  });
+});
+
+// Copy expression from calculator into graph input.
+document.getElementById('to-graph-btn').addEventListener('click', () => {
+  const expr = (calcExpr || calcCurrent).trim();
+  if (!expr) return;
+  document.getElementById('expr-input').value = expr;
+  document.querySelector('[data-tab="graph"]').click();   // switch tab
+});
+
+/* ================================================================
+   Graph Panel: Render on button click (or Enter).
+   ================================================================ */
+document.getElementById('render-btn').addEventListener('click', render);
+document.getElementById('expr-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') render();
+});
+
+function render() {
+  const expr = document.getElementById('expr-input').value.trim();
+  const errEl = document.getElementById('error-msg');
+  if (!expr) { errEl.textContent = 'Please enter an expression.'; return; }
+
+  try {
+    const f = compileExpr(expr);
+    // Validate the function.
+    const xmin  = parseFloat(document.getElementById('xmin').value);
+    const xmax  = parseFloat(document.getElementById('xmax').value);
+    if (isNaN(xmin) || isNaN(xmax)) { errEl.textContent = 'Invalid x-range.'; return; }
+    // Quick smoke-test.
+    f(xmin);
+    errEl.textContent = '';
+    drawGraph(f, xmin, xmax);
+  } catch (err) {
+    errEl.textContent = 'Invalid expression: ' + err.message;
+  }
+}
+
+/* ================================================================
+   Service Worker Registration (offline support).
+   ================================================================ */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('service-worker.js')
+    .catch(() => {});  // ignore if SW not available
+}
+</script>
+</body>
+</html>
