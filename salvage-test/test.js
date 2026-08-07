@@ -1,0 +1,17 @@
+const assert = require('assert');
+const { slugify, clamp } = require('./util.js');
+
+// Test slugify function
+assert.strictEqual(slugify('Hello World'), 'hello-world');
+assert.strictEqual(slugify('  SPACES and  More  '), 'spaces-and-more');
+assert.strictEqual(slugify('Special!@#$Characters'), 'specialcharacters');
+assert.strictEqual(slugify('Multiple   Spaces'), 'multiple-spaces');
+
+// Test clamp function
+assert.strictEqual(clamp(5, 0, 10), 5);
+assert.strictEqual(clamp(-5, 0, 10), 0);
+assert.strictEqual(clamp(15, 0, 10), 10);
+assert.strictEqual(clamp(0, 0, 10), 0);
+assert.strictEqual(clamp(10, 0, 10), 10);
+
+console.log('OK');
