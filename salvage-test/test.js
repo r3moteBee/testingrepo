@@ -7,6 +7,10 @@ assert.strictEqual(slugify('  SPACES and  More  '), 'spaces-and-more');
 assert.strictEqual(slugify('Special!@#$Characters'), 'specialcharacters');
 assert.strictEqual(slugify('Multiple   Spaces'), 'multiple-spaces');
 
+// Edge cases for slugify
+assert.strictEqual(slugify(''), '');
+assert.strictEqual(slugify('   '), '');
+
 // Test clamp function
 assert.strictEqual(clamp(5, 0, 10), 5);
 assert.strictEqual(clamp(-5, 0, 10), 0);
