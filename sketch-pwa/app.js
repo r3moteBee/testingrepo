@@ -2,8 +2,8 @@
  * DOM wiring and event handlers for the Sketch PWA
  */
 
-importScripts('canvas.js');
-importScripts('storage.js');
+import { createStrokes, addPoint, startNewStroke, endStroke, undo, renderStrokes, serializeDrawing, deserializeDrawing } from './canvas.js';
+import { initDB, createDrawing, getDrawing, listDrawings, updateDrawing, deleteDrawing } from './storage.js';
 
 // Canvas state
 let strokes = [];
@@ -239,7 +239,7 @@ async function renameDrawing(id, newName) {
 /**
  * Delete a drawing
  */
-async function deleteDrawing(id, element) {
+async function handleDeleteDrawing(id, element) {
   if (!confirm('Are you sure you want to delete this drawing?')) return;
   
   try {
@@ -329,7 +329,7 @@ async function renderDrawingsList() {
     });
     
     container.querySelectorAll('.btn-delete').forEach(btn => {
-      btn.addEventListener('click', (e) => deleteDrawing(parseInt(btn.dataset.id, 10), e.target));
+      btn.addEventListener('click', (e) => handleDeleteDrawing(parseInt(btn.dataset.id, 10), e.target));
     });
     
   } catch (error) {
@@ -379,7 +379,7 @@ if (typeof module !== 'undefined' && module.exports) {
     saveDrawing,
     loadDrawing,
     renameDrawing,
-    deleteDrawing,
+    handleDeleteDrawing,
     renderDrawingsList
   };
 }
