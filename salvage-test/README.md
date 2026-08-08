@@ -4,9 +4,7 @@ This module provides two utility functions: `slugify` and `clamp`.
 
 ## Installation
 
-```bash
-npm install salvage-test
-```
+Copy `util.js` into your project and require it directly. Run the tests with `node test.js`.
 
 ## Usage
 
@@ -15,7 +13,7 @@ npm install salvage-test
 Converts a string to lowercase dash-separated format (slug).
 
 ```javascript
-const { slugify } = require('salvage-test');
+const { slugify } = require('./util.js');
 
 slugify('Hello World');           // 'hello-world'
 slugify('  SPACES and  More  ');   // 'spaces-and-more'
@@ -27,7 +25,7 @@ slugify('Special!@#$Characters');  // 'specialcharacters'
 Constrains a number to be within the specified range.
 
 ```javascript
-const { clamp } = require('salvage-test');
+const { clamp } = require('./util.js');
 
 clamp(5, 0, 10);   // 5
 clamp(-5, 0, 10);  // 0

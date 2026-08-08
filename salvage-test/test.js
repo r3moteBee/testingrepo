@@ -18,4 +18,8 @@ assert.strictEqual(clamp(15, 0, 10), 10);
 assert.strictEqual(clamp(0, 0, 10), 0);
 assert.strictEqual(clamp(10, 0, 10), 10);
 
+// Clamp with fully negative range
+assert.strictEqual(clamp(-7, -10, -1), -7);
+assert.strictEqual(clamp(-20, -10, -1), -10);
+
 console.log('OK');
