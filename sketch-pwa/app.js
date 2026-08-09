@@ -92,9 +92,9 @@
         const loadBtn = document.createElement('button');
         loadBtn.textContent = 'Load';
         loadBtn.onclick = async () => {
-          const record = await SketchStorage.getDrawing(record.id);
-          drawing = { strokes: record.strokes };
-          currentId = record.id;
+          const full = await SketchStorage.getDrawing(record.id);
+          drawing = { strokes: full.strokes };
+          currentId = full.id;
           redraw();
         };
 
