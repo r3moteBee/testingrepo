@@ -1,5 +1,8 @@
 {
   "name": "sketch-pwa",
   "version": "1.0.0",
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "fake-indexeddb": "^6.0.0"
+  }
 }
